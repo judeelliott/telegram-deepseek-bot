@@ -1,12 +1,14 @@
 require("dotenv").config();
 
 const { createHttpServer } = require("./httpServer");
+const { startScheduler } = require("./scheduler");
 const { startPolling } = require("./telegram/polling");
 const { startWebhook } = require("./telegram/webhook");
 const { logError, logInfo } = require("./utils");
 
 const VALID_MODES = new Set(["polling", "webhook"]);
 let httpServer = null;
+let scheduler = null;
 
 async function main() {
   const mode = (process.env.MODE || "polling").toLowerCase();
@@ -31,21 +33,35 @@ async function main() {
     throw new Error("Missing DEEPSEEK_API_KEY");
   }
 
+  let bot = null;
+
   if (mode === "polling") {
-    startPolling();
-    return;
+    bot = startPolling();
+  } else {
+    const started = await startWebhook({
+      registerTelegramHandler: (handler) => {
+        httpServer.setTelegramHandler(handler);
+        logInfo("Webhook handler mounted", { endpoint: "/telegram" });
+      }
+    });
+    bot = started.bot;
   }
 
-  await startWebhook({
-    registerTelegramHandler: (handler) => {
-      httpServer.setTelegramHandler(handler);
-      logInfo("Webhook handler mounted", { endpoint: "/telegram" });
-    }
-  });
+  scheduler = startScheduler(bot);
 }
 
 async function handleStartupError(error) {
   logError("Bot startup failed", { message: error?.message || "unknown_error" });
+
+  if (scheduler) {
+    try {
+      scheduler.stop();
+    } catch (stopError) {
+      logError("Failed to stop scheduler after startup error", {
+        message: stopError?.message || "unknown_error"
+      });
+    }
+  }
 
   if (httpServer) {
     try {

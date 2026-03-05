@@ -1,0 +1,39 @@
+name: Render Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-render-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RENDER_DEPLOY_HOOK_URL}" ]; then
+            echo "Missing secret: RENDER_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          hook_url="${RENDER_DEPLOY_HOOK_URL}"
+          separator='?'
+          if [[ "${hook_url}" == *\?* ]]; then
+            separator='&'
+          fi
+          trigger_url="${hook_url}${separator}ref=${GITHUB_SHA}"
+
+          http_code="$(curl -sS -o /dev/null -w "%{http_code}" -X POST "${trigger_url}")"
+
+          if [ "${http_code}" -lt 200 ] || [ "${http_code}" -ge 300 ]; then
+            echo "Render deploy hook request failed with status ${http_code}"
+            exit 1
+          fi
+
+          echo "triggered"
+
