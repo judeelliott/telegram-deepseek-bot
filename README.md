@@ -150,65 +150,39 @@ npm run start:webhook
 - `TELEGRAM_BOT_TOKEN`
 - `DEEPSEEK_API_KEY`
 
-## Auto deploy to Render from GitHub
+## Auto Deploy
 
-本项目已支持两种触发 Render 部署的方式：
+部署链路：
 
-- A. Auto-Deploy（默认）：Render 服务连接的 GitHub 分支（如 `main`）有新 commit 时自动部署。
-- B. Deploy Hook（强制触发）：GitHub Actions 在每次 push 到 `main` 后调用 Deploy Hook URL，主动触发一次部署。
-
-### 1) Render 侧准备
-
-1. 打开 Render 控制台，进入你的 Web Service。
-2. 确认服务已连接 GitHub 仓库 `judeelliott/telegram-deepseek-bot`，分支为 `main`。
-3. 在 Render 服务中配置运行环境变量（至少）：
-   - `TELEGRAM_BOT_TOKEN`
-   - `DEEPSEEK_API_KEY`
-4. （Deploy Hook 模式）进入 `Settings -> Deploy Hook`，复制 Deploy Hook URL。
-
-### 2) GitHub 侧准备（Deploy Hook 模式）
-
-1. 打开仓库 `Settings -> Secrets and variables -> Actions`。
-2. 点击 `New repository secret`。
-3. 填写：
-   - `Name`: `RENDER_DEPLOY_HOOK_URL`
-   - `Value`: 粘贴上一步复制的 Render Deploy Hook URL
-
-仓库已包含 workflow：`.github/workflows/render-deploy.yml`，触发条件为 `push` 到 `main`。  
-该 workflow 会读取 `RENDER_DEPLOY_HOOK_URL` 并用 `curl` 调用 Hook；调用失败时 workflow 会失败。日志只输出 `triggered`，不会打印完整 hook URL。
-
-### 3) 本地一条命令 push
-
-macOS / Linux：
-
-```bash
-chmod +x scripts/push.sh
-./scripts/push.sh
+```text
+git push
+  ↓
+GitHub Actions
+  ↓
+curl Deploy Hook
+  ↓
+Render Deploy
 ```
 
-Windows PowerShell：
+仓库内 workflow：`.github/workflows/render-deploy.yml`  
+触发条件：`push` 到 `main`  
+核心逻辑：调用 `curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"`
 
-```powershell
-.\scripts\push.ps1
+必须在 GitHub 仓库设置 Secret：
+
+```text
+GitHub Repo
+Settings
+Secrets and variables
+Actions
+New repository secret
+
+Name
+RENDER_DEPLOY_HOOK_URL
+
+Value
+(Render Deploy Hook URL)
 ```
-
-脚本行为：
-
-- 确保在 Git 仓库根目录执行
-- 若 `origin` 不存在，自动设置为 `https://github.com/judeelliott/telegram-deepseek-bot.git`
-- 执行 `git add .` -> `git commit -m "update"` -> `git push origin main`
-- 若没有变更，会提示并正常退出（不报错）
-
-### 4) 验证是否生效
-
-1. 本地运行 `scripts/push.sh`（或 `scripts/push.ps1`）并成功 push 到 `main`。
-2. 打开 GitHub `Actions` 页面，确认 `Render Deploy` workflow 成功。
-3. 打开 Render 的 `Deploys` 页面，确认出现新的 deploy 记录。
-
-### 5) Deploy Hook 的 ref 用法（可选）
-
-当前 workflow 默认在 hook URL 后追加 `?ref=${{ github.sha }}`（或 `&ref=...`）来部署当前 commit。  
-如果你希望只使用原始 hook URL，也可以把 workflow 中的 `trigger_url` 改为 `hook_url` 后直接 `POST`。
 
 ### Render Free 限制（重要）
 
