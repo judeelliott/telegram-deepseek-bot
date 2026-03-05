@@ -1,0 +1,21 @@
+{
+  "name": "telegram-deepseek-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot with DeepSeek chat completions",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:polling": "MODE=polling node src/index.js",
+    "start:webhook": "MODE=webhook node src/index.js",
+    "dev": "node --watch src/index.js",
+    "lint": "node --check src/index.js src/httpServer.js src/deepseek.js src/memory.js src/rateLimit.js src/utils.js src/telegram/polling.js src/telegram/webhook.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
